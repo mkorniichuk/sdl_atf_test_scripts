@@ -49,19 +49,12 @@ local function registerApp(pAppId)
       common.getMobileSession(pAppId):ExpectResponse(corId, { success = true, resultCode = "SUCCESS" })
       common.getMobileSession(pAppId):ExpectNotification("OnHMIStatus", { hmiLevel = "NONE" })
     end)
-  utils.wait(10000)
 end
 
-local function registrationWithResumption()
-  common.getMobileSession(pAppId):StartService(7)
-  :Do(function()
-    local params = common.getConfigAppParams(1)
-    local corId = mobSession:SendRPC("RegisterAppInterface", common.getConfigAppParams(1))
-    common.getHMIConnection():ExpectNotification("BasicCommunication.OnAppRegistered",
-      { application = { appName = common.getConfigAppParams(1).appName } })
-    common.getMobileSession(1):ExpectResponse(corId, { success = true, resultCode = "SUCCESS" })
-    common.getMobileSession():ExpectNotification("OnHMIStatus",{ hmiLevel = "NONE" })
-  end)
+local function checkAppIsNotResumed(pAppId)
+  common.getHMIConnection():ExpectRequest("BasicCommunication.ActivateApp", { appID = common.getHMIAppId(pAppId) })
+  :Times(0)
+  utils.wait(10000)
 end
 
 --[[ Scenario ]]
@@ -79,7 +72,8 @@ runner.Step("Register App2", common.registerApp, { 2 })
 runner.Step("PTU, revoke App1", common.policyTableUpdate, { PTUFuncToClearApp1Policy })
 runner.Step("ForceStop App2", unexpectedDisconnect)
 runner.Step("Clean session App2", cleanMobileSessions)
-runner.Step("Register App1 and check App1 is not resumed in FULL", registerApp, { 1 })
+runner.Step("Register App1", registerApp, { 1 })
+runner.Step("Check App1 is not resumed in FULL", checkAppIsNotResumed, { 1 })
 
 runner.Title("Postconditions")
 runner.Step("Stop SDL", common.postconditions)
